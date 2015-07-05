@@ -75,19 +75,29 @@ def get_tcs_info(tcsno):
 
 
 @app.route("/pie")
-def get_pie_data():
+def get_pie():
 	res = {}
 	res['tcsno'] = pie_tcsno
-	res['time'] = pie_time.strftime('%Y/%m/%d %H:%M')
+	res['time'] = pie_time.strftime('%Y%m%d%H%M')
+	return json.dumps(res)
+
+
+@app.route("/piedata/<tcsno>/<time>")
+def get_pie_data(tcsno, time):
+	time_fmt = '%Y%m%d%H%M'
+	t1 = datetime.datetime.strptime(time, time_fmt)
+	t2 = t1 + datetime.timedelta(days=1)
 	cur = db.cursor()
-	cur.execute("SELECT detectors FROM scats WHERE tcsno=%s AND time=%s",
-			(pie_tcsno, pie_time))
-	detectors = (cur.fetchone() or [[]])[0]
+	cur.execute("SELECT time, detectors FROM scats"
+			" WHERE tcsno=%s AND time>=%s AND time<%s"
+			" ORDER BY time", (tcsno, t1, t2))
+	res = []
+	for t, dets in cur.fetchall():
+		fake_detectors = [0,0,0,0]
+		for i, count in enumerate(dets):
+			fake_detectors[i%4] += count
+		res.append({'time': t.strftime(time_fmt), 'detectors':fake_detectors})
 	db.commit()
-	fake_detectors = [0,0,0,0]
-	for i, count in enumerate(detectors):
-		fake_detectors[i%4] += count
-	res['detectors'] = fake_detectors
 	return json.dumps(res)
 
 
